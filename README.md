@@ -73,6 +73,22 @@ find the `.ts` file):
 ln -s "$PWD/am-proxy.sh" ~/.local/bin/am-proxy
 ```
 
+## Security and limitations
+
+am-proxy assumes trusted clients and a well-behaved upstream.
+
+- **No client authentication.** Anyone who can reach the listening address can
+  use the proxy's `ANTHROPIC_AUTH_TOKEN`. Bind to a loopback address (the
+  default in the examples) or restrict access at the network level; do not
+  expose it to untrusted networks.
+- **No size limits.** Request bodies are buffered in memory, and every response
+  is retained in full until it is logged, including long streams. Memory use
+  therefore scales with the largest request/response, which is fine for
+  ordinary Messages API traffic but unsuitable for untrusted or abusive clients.
+- **Logs contain full bodies.** Only credential headers are redacted; prompts,
+  completions, and any sensitive data inside them are written to stdout as-is.
+  Treat the log file accordingly.
+
 ## Logs
 
 Pipe stdout to a file and inspect with `jq`:
