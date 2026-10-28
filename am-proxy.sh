@@ -166,6 +166,7 @@ proxy_path="$script_dir/am-proxy.ts"
 [[ -f $proxy_path ]] || die "cannot find $proxy_path"
 
 exec "$deno_bin" run \
+  --no-prompt \
   "--allow-net=$net_allow" \
   "--allow-env=HOST,PORT,ANTHROPIC_BASE_URL,ANTHROPIC_AUTH_TOKEN" \
   "$proxy_path" "$@"

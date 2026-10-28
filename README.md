@@ -12,7 +12,8 @@ A minimal proxy for Anthropic-compatible Messages API with credential control an
 
 ## Requirements
 
-- [Deno](https://deno.com/)
+- [Deno](https://deno.com/) 2.5.0 or later (uses `Uint8Array.prototype.toBase64()`,
+  which arrived with V8 14.0 in Deno 2.5.0)
 - Bash (only for the `am-proxy.sh` launcher)
 
 ## Configuration

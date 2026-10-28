@@ -358,10 +358,17 @@ async function handleRequest(
       headers: outboundHeaders,
       body: fetchForbidsBody ? undefined : requestBytes,
       redirect: "manual",
+      // Abort the upstream call (and stop paying for it) if the client goes away.
+      signal: request.signal,
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    const message = `upstream request failed: ${detail}`;
+    const clientGone = request.signal.aborted;
+    const status = clientGone ? 499 : 502;
+    const statusText = clientGone ? "Client Closed Request" : "Bad Gateway";
+    const message = clientGone
+      ? "client closed the request"
+      : `upstream request failed: ${detail}`;
     const bytes = errorBody("api_error", message);
     const responseHeaders = new Headers({ "content-type": "application/json" });
     logRecord({
@@ -369,17 +376,18 @@ async function handleRequest(
       event: "response",
       id,
       remote_addr: remote,
-      status: 502,
-      status_text: "Bad Gateway",
+      status,
+      status_text: statusText,
       headers: headersForLog(responseHeaders),
       ...bodyForLog(bytes, null),
       ttfb_ms: elapsed(startedAt),
       duration_ms: elapsed(startedAt),
+      stream_end: clientGone ? "client_cancel" : "upstream_error",
       upstream_error: detail,
     });
     return new Response(bytes, {
-      status: 502,
-      statusText: "Bad Gateway",
+      status,
+      statusText,
       headers: responseHeaders,
     });
   }
@@ -410,7 +418,12 @@ async function handleRequest(
 
   const loggedBody = loggingBodyStream(
     upstream.body,
-    (chunks, kind, error) => {
+    (chunks, rawKind, error) => {
+      // Aborting the fetch on disconnect can surface as a read error; that is
+      // still the client leaving, not an upstream failure.
+      const kind = rawKind === "upstream_error" && request.signal.aborted
+        ? "client_cancel"
+        : rawKind;
       const bytes = concatChunks(chunks);
       const record: Record<string, unknown> = {
         ts: new Date().toISOString(),
